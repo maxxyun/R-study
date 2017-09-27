@@ -1,0 +1,114 @@
+#####################################################
+## 1. 패키지와 사용자 정의함수 로드
+#####################################################
+library(rvest)
+library(dplyr)
+
+##---------------------------------------------------
+## R 환경의 OS 구하기
+##---------------------------------------------------
+get_os <- function(){
+  sysinf <- Sys.info()
+  if (!is.null(sysinf)){
+    os <- sysinf['sysname']
+    if (os == 'Darwin')
+      os <- "osx"
+  } else { ## mystery machine
+    os <- .Platform$OS.type
+    if (grepl("^darwin", R.version$os))
+      os <- "osx"
+    if (grepl("linux-gnu", R.version$os))
+      os <- "linux"
+  }
+  tolower(os)
+}
+
+#####################################################
+## 2. 환경변수 설정
+#####################################################
+## 한글 인코딩
+os <- get_os()
+encode <- ifelse(os=="windows", "cp949", "utf-8")
+
+path <- "speech"
+if (!dir.exists(path)) dir.create(path)
+
+damPst <- c("김대중", "이명박", "노무현")
+
+URL0 <- "http://www.pa.go.kr/research/contents/speech/index.jsp"
+
+#####################################################
+## 3. 연설문 가져오기
+#####################################################
+for (person in damPst) {
+  URL <- sprintf("%s?pageIndex=1&damPst=%s", URL0, person)
+  
+  pageTxt <- read_html(URL)
+  pages <- html_nodes(pageTxt, "form#frm div.boardPage li") %>%
+    html_children %>%
+    .[length(.)] %>%
+    html_attrs %>%
+    unlist %>%
+    .[2] %>%
+    gsub(pattern = "[^[:digit:]]", replace = "") %>%
+    as.integer
+  
+  for (i in 1:pages) {
+    URL <- sprintf("%s?pageIndex=%s&damPst=%s", URL0, i, person)
+    
+    tableTxt <- read_html(URL)
+    page <- html_nodes(tableTxt, "form#frm tbody") %>%
+      html_children() 
+    
+    for (j in 1:length(page)) {
+      #Sys.sleep(1)
+      
+      # 테이블의 컬럼값 추출
+      fnames <- page[j] %>%
+        html_nodes("td") %>%
+        html_text %>%
+        iconv(from = "utf-8", to = encode)
+      
+      # 연설문 분야에서 '/' 문자 변경
+      fnames[3] <- fnames[3] %>%
+        gsub(pattern = "/", replacement = "-")
+      
+      # 연설문 유형에서 '/' 문자 변경
+      fnames[4] <- fnames[4] %>%
+        gsub(pattern = "/", replacement = "-")
+      
+      # 연설문 제목에서 특수문자 제거
+      fnames[5] <- fnames[5] %>%
+        gsub(pattern = "[[:punct:]]", replacement = "")
+      
+      # 연설문 날짜의 포맷 변경
+      fnames[6] <- fnames[6] %>%
+        gsub(pattern = "\\.", replacement = "-")
+      
+      fname <- fnames[-1] %>%
+        paste(collapse = "_") %>%
+        paste("txt", sep = ".") %>%
+        paste(path, ., sep = "/")
+      
+      # 연설문보기 링크의 value 부분 발췌
+      value <- page[j] %>%
+        html_nodes("a") %>%
+        .[1] %>%
+        html_attr(name = "href")
+      
+      # 연설문 가져오기
+      URL <- sprintf("%s%s", URL0, value)
+      contentTxt <- read_html(URL)
+      
+      contents <- html_nodes(contentTxt, "div#content div.conTxt") %>%
+        html_text %>%
+        iconv(from = "utf-8", to = encode) %>%
+        gsub(pattern = "[[:cntrl:]]", replacement = "") 
+      
+      # 연설문을 파일에 쓰기
+      zz <- file(fname, "wt", encoding = "utf-8")
+      cat(contents, file = zz)
+      close(zz)
+    }
+  }
+}
