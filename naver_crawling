@@ -1,0 +1,42 @@
+library("R6")
+library("rvest")
+
+ 
+
+# 리뷰를 저장한 공간 만들기
+
+all.reviews <- c()
+
+# 20페이지까지 크롤링하기 위해 20번 반복합니다. 10페이지까지 크롤링하시려면 20을 10으로 바꾸시면 됩니다.
+for(page in 1:20){
+
+  # 크롤링할 사이트 주소 만들기
+
+  url <- paste('http://movie.naver.com/movie/point/af/list.nhn?st=mcode&sword=159037&target=after&page=', page, sep='')
+
+  # read_html 함수를 사용하여 html 페이지를 htxt 변수에 저장
+  htxt <- read_html(url,encoding="CP949")
+
+  # html_nodes 함수를 사용하여 list_netizen class를 table 변수에 저장
+  table <- html_nodes(htxt,'.list_netizen')
+
+  # html_nodes 함수를 사용하여 title class를 content 변수에 저장
+  content <- html_nodes(table, '.title')
+
+  # html_text 함수를 사용하여 text를 reviews 변수에 저장
+  reviews <- html_text(content)
+
+  # 리뷰가 없으면 더이상 반복문을 실행하지 않습니다.
+  if(length(reviews)==0){break}
+
+  # 리뷰 병합
+  all.reviews <- c(all.reviews, reviews)
+
+  # 크롤링한 페이지를 출력
+  print(page)
+}
+
+ 
+
+# 저장된 리뷰를 write.table 함수를 사용하여 txt파일로 저장
+write.table(all.reviews, 'naver.txt')
