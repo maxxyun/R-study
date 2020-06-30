@@ -1,0 +1,24 @@
+# 아마존의 상품 리뷰를 크롤링 하기
+# rvest패키지와 thhr패키지가 필요
+
+# 라이브러리 두개 불러오기
+library(rvest)
+library(httr)
+
+all.reviews <- c()
+
+# 상품의 리뷰 페이지 주소 상품의 주소가 아님 리뷰모두보기 눌러 들어간 페이지 주소
+# 1페이지부터 26페이지까지 불러오기
+
+for (page in 1:26){url='https://www.amazon.com/Waterpik-Classic-Professional-Flosser-WP-72/product-reviews/B00HFQQ0U6/ref=cm_cr_dp_d_show_all_btm?ie=UTF8&reviewerType=all_reviews'
+
+  url_page <- paste0(url,page)
+  reading_html <- read_html(url_page)
+  text_nodes <- html_nodes(reading_html, 'span.review-text')
+  review <- html_text(text_nodes)
+  all.reviews<-c(all.reviews, review)
+  print(page)
+}
+
+# write.table 함수를 사용하여 크롤링한 자료를 문서 폴더에 amazon.txt 파일로 저장
+write.table(all.reviews, 'amazon.txt')
